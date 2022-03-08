@@ -41,7 +41,7 @@ func main() {
 			log.Fatal(err)
 		}
 		pub, _ := faucet.HexString()
-		log.Infof("faucet public key: %s", pub)
+		log.Infof("faucet public key: %s, address %s", pub, faucet.Address().String())
 	}
 	// Treasurer
 	treasurer := ethereum.NewSignKeys()
@@ -50,7 +50,7 @@ func main() {
 			log.Fatal(err)
 		}
 		pub, _ := treasurer.HexString()
-		log.Infof("treasurer public key: %s", pub)
+		log.Infof("treasurer public key: %s, address %s", pub, treasurer.Address().String())
 	}
 
 	client, err := client.New(*cfg.GatewayUrl, treasurer)
