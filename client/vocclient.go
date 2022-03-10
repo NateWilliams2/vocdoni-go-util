@@ -7,6 +7,7 @@ import (
 	"go.vocdoni.io/dvote/api"
 	"go.vocdoni.io/dvote/client"
 	"go.vocdoni.io/dvote/crypto/ethereum"
+	"go.vocdoni.io/dvote/vochain"
 	"go.vocdoni.io/proto/build/go/models"
 	"google.golang.org/protobuf/proto"
 )
@@ -87,11 +88,30 @@ func (c *Client) SetAccountInfo(signer *ethereum.SignKeys,
 	faucet *ethereum.SignKeys, uri string, nonce uint32) error {
 	req := api.APIrequest{Method: "submitRawTx"}
 	tx := models.Tx_SetAccountInfo{SetAccountInfo: &models.SetAccountInfoTx{
-		Txtype:  models.TxType_SET_ACCOUNT_INFO,
-		Nonce:   nonce,
-		InfoURI: uri,
+		Txtype:        models.TxType_SET_ACCOUNT_INFO,
+		Nonce:         nonce,
+		InfoURI:       uri,
+		FaucetPackage: nil,
 	}}
+
+	// If faucet is not nil, request VOC tokens with faucet package
 	var err error
+	if faucet != nil {
+		if tx.SetAccountInfo.FaucetPackage, err = vochain.GenerateFaucetPackage(faucet,
+			signer.Address(), 1000000); err != nil {
+			return fmt.Errorf("could not generate faucet package: %w", err)
+		}
+		faucetPayloadBytes, err := proto.Marshal(tx.SetAccountInfo.FaucetPackage.Payload)
+		if err != nil {
+			return fmt.Errorf("could not marshal faucet payload: %w", err)
+		}
+		faucetPayloadSignature, err := faucet.SignEthereum(faucetPayloadBytes)
+		if err != nil {
+			return fmt.Errorf("could not sign faucet payload: %w", err)
+		}
+		tx.SetAccountInfo.FaucetPackage.Signature = faucetPayloadSignature
+	}
+
 	stx := new(models.SignedTx)
 	stx.Tx, err = proto.Marshal(&models.Tx{Payload: &tx})
 	if err != nil {
