@@ -13,6 +13,7 @@ import (
 )
 
 type Client struct {
+	ChainID    string
 	gw         *client.Client
 	signingKey *ethereum.SignKeys
 }
@@ -24,11 +25,15 @@ func New(gatewayUrl string, signingKey *ethereum.SignKeys) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &Client{
+	c := &Client{
 		gw:         gw,
 		signingKey: signingKey,
-	}, nil
+	}
+	c.ChainID, err = c.GetChainID()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // ActiveEndpoint returns the address of the current active endpoint, if one exists
@@ -66,6 +71,7 @@ func (c *Client) MintTokens(treasurer *ethereum.SignKeys, to []byte, amount uint
 	if err != nil {
 		return err
 	}
+	treasurer.VocdoniChainID = c.ChainID
 	if stx.Signature, err = treasurer.SignVocdoniTx(stx.Tx); err != nil {
 		return err
 	}
@@ -80,6 +86,21 @@ func (c *Client) MintTokens(treasurer *ethereum.SignKeys, to []byte, amount uint
 		return fmt.Errorf(resp.Message)
 	}
 	return nil
+}
+
+// GetChainID gets the chain ID for the gateway
+func (c *Client) GetChainID() (string, error) {
+	req := api.APIrequest{
+		Method: "getInfo",
+	}
+	resp, err := c.request(req, c.signingKey)
+	if err != nil {
+		return "", err
+	}
+	if !resp.Ok {
+		return "", fmt.Errorf("could not get gateway info: %s", resp.Message)
+	}
+	return resp.ChainID, nil
 }
 
 // SetAccountInfo submits a transaction to set an account with the given
@@ -117,6 +138,7 @@ func (c *Client) SetAccountInfo(signer *ethereum.SignKeys,
 	if err != nil {
 		return fmt.Errorf("could not marshal set account info tx")
 	}
+	signer.VocdoniChainID = c.ChainID
 	stx.Signature, err = signer.SignVocdoniTx(stx.Tx)
 	if err != nil {
 		return fmt.Errorf("could not sign account transaction: %v", err)

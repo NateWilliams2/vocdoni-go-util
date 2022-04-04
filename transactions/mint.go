@@ -17,6 +17,7 @@ func MintTokens(client *client.Client, treasurer, to *ethereum.SignKeys, amount 
 		}
 		time.Sleep(time.Second * 20)
 	}
+	log.Infof("faucet addr %x pubkey %x", to.Address().Bytes(), to.PublicKey())
 	treasurerAcct, err := client.GetTreasurer(to)
 	if err != nil {
 		log.Fatalf("could not get treasurer: %s", err.Error())
